@@ -1,59 +1,64 @@
 from flask import Flask, request
 import requests
-import pandas as pd
 import os
 
 app = Flask(__name__)
 
-# Load FAQ từ file Excel
-faq_df = pd.read_excel("faq.xlsx")
-
-# Token từ Facebook Developer (config trong Render)
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "my_secret_token")
+# Lấy token từ biến môi trường (Render -> Environment Variables)
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
+VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "my_secret_token")
 
-@app.route("/", methods=["GET"])
+
+@app.route("/", methods=['GET'])
 def home():
-    return "Chatbot Messenger đang chạy!"
+    return "Chatbot is running!", 200
 
-# Webhook để Facebook gọi
-@app.route("/webhook", methods=["GET", "POST"])
+
+@app.route("/webhook", methods=['GET', 'POST'])
 def webhook():
-    if request.method == "GET":
-        # Verify token khi Facebook setup webhook
-        if request.args.get("hub.verify_token") == VERIFY_TOKEN:
-            return request.args.get("hub.challenge")
-        return "Sai verify token", 403
-    
-    elif request.method == "POST":
+    if request.method == 'GET':
+        # Xử lý xác minh webhook từ Facebook
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            print("WEBHOOK_VERIFIED")
+            return challenge, 200
+        else:
+            return "Verification token mismatch", 403
+
+    elif request.method == 'POST':
+        # Nhận dữ liệu từ Messenger
         data = request.get_json()
-        if "entry" in data:
-            for entry in data["entry"]:
-                if "messaging" in entry:
-                    for message_event in entry["messaging"]:
-                        if "message" in message_event:
-                            sender_id = message_event["sender"]["id"]
-                            message_text = message_event["message"].get("text", "")
-                            reply = get_answer(message_text)
-                            send_message(sender_id, reply)
-        return "ok", 200
+        print(data)
 
-# Hàm tìm câu trả lời từ FAQ
-def get_answer(user_message):
-    for i, row in faq_df.iterrows():
-        if row["keyword"].lower() in user_message.lower():
-            return row["answer"]
-    return "Xin lỗi, mình chưa có câu trả lời cho câu hỏi này."
+        if data['object'] == 'page':
+            for entry in data['entry']:
+                for messaging_event in entry['messaging']:
+                    if 'message' in messaging_event:
+                        sender_id = messaging_event['sender']['id']
+                        message_text = messaging_event['message'].get('text', '')
 
-# Hàm gửi tin nhắn lại Messenger
-def send_message(recipient_id, message_text):
-    url = f"https://graph.facebook.com/v12.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+                        if message_text:
+                            reply(sender_id, f"Bạn vừa nói: {message_text}")
+
+        return "EVENT_RECEIVED", 200
+
+
+def reply(recipient_id, message_text):
+    """Gửi tin nhắn trả lời về Messenger"""
+    url = "https://graph.facebook.com/v17.0/me/messages"
     headers = {"Content-Type": "application/json"}
-    data = {
+    payload = {
         "recipient": {"id": recipient_id},
-        "message": {"text": message_text}
+        "message": {"text": message_text},
+        "messaging_type": "RESPONSE"
     }
-    requests.post(url, headers=headers, json=data)
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    response = requests.post(url, headers=headers, params=params, json=payload)
+    print("Message sent:", response.text)
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=10000, debug=True)
