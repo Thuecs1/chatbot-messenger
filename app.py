@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 # Lấy token từ biến môi trường (Render -> Environment Variables)
-PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
+PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN", "EAARKuY5YAOsBPTEGYsAQjWG7yAvSbQZAkNw3AaZAVSLbvEZAAyGDQTSQocOzd9TZAZBTh3qUODQnRMbxzkQEO0zxEnZAQeq86fLJZArGDkljCz6N2qKcWBSjjMQdzM9ZBPZB6mMGDK6HKWrqafZAP0VU75QViF8y4RnQwj3IsoKHhQymRDwZA1rUELhP6hHT2WUzZBE9ZAvO68ZBsZD")
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "my_secret_token")
 
 
